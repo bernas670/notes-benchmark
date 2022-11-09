@@ -88,8 +88,6 @@ public class NotesAdapter extends RecyclerView.Adapter<NotesAdapter.ViewHolder> 
     // Involves populating data into the item through holder
     @Override
     public void onBindViewHolder(NotesAdapter.ViewHolder holder, int position) {
-        System.out.println("=============== " + position + " =============");
-
         // Get the data model based on position
         String note = notes.get(position);
 

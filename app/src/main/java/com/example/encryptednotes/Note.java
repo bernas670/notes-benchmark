@@ -1,6 +1,7 @@
 package com.example.encryptednotes;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Build;
 import android.util.Log;
 import android.util.Base64;
@@ -25,6 +26,8 @@ import javax.crypto.CipherInputStream;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+
+import kotlin.TuplesKt;
 
 public class Note {
 
@@ -54,28 +57,38 @@ public class Note {
 
 
     private static String SECRET_KEY = "aesEncryptionKey";
-    private static byte[] INIT_VECTOR = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
-
-    private static Cipher getCipher(int mode) throws Exception {
-        IvParameterSpec iv = new IvParameterSpec(INIT_VECTOR);
+    private static String encrypt(Context context, String id, String value) throws Exception {
         SecretKeySpec keySpec = new SecretKeySpec(SECRET_KEY.getBytes("UTF-8"), "AES");
 
         Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
-        cipher.init(mode, keySpec, iv);
+        cipher.init(Cipher.ENCRYPT_MODE, keySpec);
+        byte[] iv = cipher.getIV();
 
-        return cipher;
-    }
+        SharedPreferences prefs = context.getSharedPreferences("com.example.encryptednotes", Context.MODE_PRIVATE);
+        String ivStr = Base64.encodeToString(iv, Base64.DEFAULT);
+        prefs.edit().putString(id, ivStr).apply();
 
-    private static String encrypt(String value) throws Exception {
-        Cipher cipher = getCipher(Cipher.ENCRYPT_MODE);
+        Log.d("IV STRING", ivStr);
+
         byte[] encrypted = cipher.doFinal(value.getBytes());
 
         return Base64.encodeToString(encrypted, Base64.DEFAULT);
     }
 
-    private static String decrypt(String value) throws Exception {
-        Cipher cipher = getCipher(Cipher.DECRYPT_MODE);
+    private static String decrypt(Context context, String id, String value) throws Exception {
+        SecretKeySpec keySpec = new SecretKeySpec(SECRET_KEY.getBytes("UTF-8"), "AES");
+
+        // get iv from shared preferences
+        SharedPreferences prefs = context.getSharedPreferences("com.example.encryptednotes", Context.MODE_PRIVATE);
+        String ivStr = prefs.getString(id, "DEFAULT");
+        IvParameterSpec iv = new IvParameterSpec(Base64.decode(ivStr, Base64.DEFAULT));
+
+        Log.d("IV STRING", ivStr);
+
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, iv);
+
         byte[] original = cipher.doFinal(Base64.decode(value, Base64.DEFAULT));
 
         return new String(original);
@@ -86,7 +99,7 @@ public class Note {
 
         try {
             fos = context.openFileOutput(id + ".txt", Context.MODE_PRIVATE);
-            String fileContent = encrypt(title + "\n" + content);
+            String fileContent = encrypt(context,id,title + "\n" + content);
             fos.write(fileContent.getBytes());
         } catch (Exception e) {
             e.printStackTrace();
@@ -109,7 +122,9 @@ public class Note {
                 sb.append(text).append("\n");
             }
 
-            text = decrypt(sb.toString());
+            text = decrypt(context, id, sb.toString());
+
+            Log.d("DECRYPTED TEXT", text);
 
             int div = text.indexOf("\n");
 
@@ -123,8 +138,11 @@ public class Note {
         return new Note(id, title, content);
     }
 
-    public static void deleteNote(String id) {
+    public static void deleteNote(Context context, String id) {
         File file = new File(MainActivity.path + "/" + id + ".txt");
         file.getAbsoluteFile().delete();
+
+        SharedPreferences prefs = context.getSharedPreferences("com.example.encryptednotes", Context.MODE_PRIVATE);
+        prefs.edit().remove(id).apply();
     }
 }

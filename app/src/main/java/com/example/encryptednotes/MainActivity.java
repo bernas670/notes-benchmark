@@ -82,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void onClick(DialogInterface dialogInterface, int i) {
                                 String noteId = notes.get(position);
-                                Note.deleteNote(noteId);
+                                Note.deleteNote(itemView.getContext(), noteId);
 
                                 notes.remove(position);
                                 adapter.notifyItemRemoved(position);
